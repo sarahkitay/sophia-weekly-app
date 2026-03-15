@@ -93,7 +93,8 @@ export async function GET(request: NextRequest) {
       }
       for (const key of lowestKeys) {
         const arr = Array.isArray(mix[key]) ? (mix[key] as string[]) : [];
-        if (arr.length) itemsByLowest[key].push(arr);
+        const noSide = arr.filter((name) => !name.toLowerCase().includes("side"));
+        if (noSide.length) itemsByLowest[key].push(noSide);
       }
     }
 

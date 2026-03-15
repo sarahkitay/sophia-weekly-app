@@ -80,6 +80,7 @@ export default function GoldiesWeeklyPage() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(RESTAURANT_STORAGE_KEY);
@@ -126,10 +127,11 @@ export default function GoldiesWeeklyPage() {
       setTopCocktails(((mix.topCocktailItems ?? []) as string[]).concat("", "", "").slice(0, 3));
       setTopWine(((mix.topWineItems ?? []) as string[]).concat("", "", "").slice(0, 3));
       setTopBeer(((mix.topBeerItems ?? []) as string[]).concat("", "", "").slice(0, 3));
-      setLowestFood(((mix.lowestFoodItems ?? []) as string[]).concat("", "", "").slice(0, 3));
-      setLowestCocktails(((mix.lowestCocktailItems ?? []) as string[]).concat("", "", "").slice(0, 3));
-      setLowestWine(((mix.lowestWineItems ?? []) as string[]).concat("", "", "").slice(0, 3));
-      setLowestBeer(((mix.lowestBeerItems ?? []) as string[]).concat("", "", "").slice(0, 3));
+      const noSide = (arr: string[]) => arr.filter((s) => !s.toLowerCase().includes("side"));
+      setLowestFood(noSide((mix.lowestFoodItems ?? []) as string[]).concat("", "", "").slice(0, 3));
+      setLowestCocktails(noSide((mix.lowestCocktailItems ?? []) as string[]).concat("", "", "").slice(0, 3));
+      setLowestWine(noSide((mix.lowestWineItems ?? []) as string[]).concat("", "", "").slice(0, 3));
+      setLowestBeer(noSide((mix.lowestBeerItems ?? []) as string[]).concat("", "", "").slice(0, 3));
     } catch {
       setDoc({ weekKey: wk, exists: false });
     }
@@ -383,7 +385,12 @@ export default function GoldiesWeeklyPage() {
     setMessage(null);
     try {
       const url = `/api/sophia-weekly/${action}?weekKey=${encodeURIComponent(weekKey)}&restaurantId=${encodeURIComponent(restaurantId)}${params ?? ""}`;
-      const res = await fetch(url, { method: "POST" });
+      const opts: RequestInit = { method: "POST" };
+      if (action === "send" && currentDoc?.generatedEmailText?.trim()) {
+        opts.headers = { "Content-Type": "application/json" };
+        opts.body = JSON.stringify({ emailBody: currentDoc.generatedEmailText });
+      }
+      const res = await fetch(url, opts);
       const data = await res.json();
       if (!res.ok) {
         setMessage({ type: "err", text: data.error ?? "Failed" });
@@ -818,11 +825,11 @@ export default function GoldiesWeeklyPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => runAction("send")}
+                  onClick={() => setSendConfirmOpen(true)}
                   disabled={!!actionLoading || !ready}
                   className="px-4 py-2.5 bg-amber-600 text-white rounded text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors min-h-[2.5rem]"
                 >
-                  {actionLoading === "send" ? "..." : "Send email now"}
+                  Send email now
                 </button>
                 <button
                   type="button"
@@ -1013,6 +1020,61 @@ export default function GoldiesWeeklyPage() {
           </div>
         </section>
       </div>
+
+      {/* Send confirmation modal: shows exact subject + body, Approve sends it */}
+      {sendConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50"
+          onClick={() => setSendConfirmOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="send-confirm-title"
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col border border-stone-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="send-confirm-title" className="text-lg font-semibold text-stone-800 px-5 pt-5 pb-2">
+              Confirm send
+            </h2>
+            <p className="text-sm text-stone-500 px-5 pb-3">
+              This is exactly what will be sent. Approve to send, or Cancel to go back.
+            </p>
+            <div className="px-5 space-y-2 flex-shrink-0">
+              <div>
+                <span className="text-xs font-medium text-stone-500">Subject:</span>
+                <p className="text-sm font-medium text-stone-800">
+                  Weekly Recap {getWeekRangeLabel(weekKey)}
+                </p>
+              </div>
+              <span className="text-xs font-medium text-stone-500">Body:</span>
+            </div>
+            <pre className="flex-1 min-h-0 mx-5 mb-4 p-4 bg-stone-100 rounded-lg text-xs font-mono text-stone-700 whitespace-pre-wrap overflow-auto border border-stone-200">
+              {currentDoc.generatedEmailText || "(No content)"}
+            </pre>
+            <div className="flex gap-3 px-5 pb-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSendConfirmOpen(false);
+                  runAction("send");
+                }}
+                disabled={!!actionLoading}
+                className="px-4 py-2.5 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+              >
+                {actionLoading === "send" ? "Sending…" : "Approve & send"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSendConfirmOpen(false)}
+                className="px-4 py-2.5 border border-stone-300 text-stone-700 rounded-lg text-sm font-medium hover:bg-stone-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

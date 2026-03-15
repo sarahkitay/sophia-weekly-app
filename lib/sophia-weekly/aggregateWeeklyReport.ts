@@ -56,6 +56,12 @@ function defArr<T>(a: T[] | undefined | null): T[] {
   return Array.isArray(a) ? a : [];
 }
 
+/** Lowest-selling items must never include the word "side"; skip those and take the next. */
+function filterLowestItems(items: string[], max = 3): string[] {
+  const filtered = items.filter((name) => !name.toLowerCase().includes("side"));
+  return filtered.slice(0, max);
+}
+
 /**
  * Combine sales, labor, and product mix into one weekly report.
  * Labor: total labor cost is from the file (FOH + BOH). FOH cost and BOH cost are from the file.
@@ -113,9 +119,9 @@ export function aggregateWeeklyReport(
     topCocktailItems: defArr(productMix?.topCocktailItems).slice(0, 3),
     topWineItems: defArr(productMix?.topWineItems).slice(0, 3),
     topBeerItems: defArr(productMix?.topBeerItems).slice(0, 3),
-    lowestFoodItems: defArr(productMix?.lowestFoodItems).slice(0, 3),
-    lowestCocktailItems: defArr(productMix?.lowestCocktailItems).slice(0, 3),
-    lowestWineItems: defArr(productMix?.lowestWineItems).slice(0, 3),
-    lowestBeerItems: defArr(productMix?.lowestBeerItems).slice(0, 3),
+    lowestFoodItems: filterLowestItems(defArr(productMix?.lowestFoodItems)),
+    lowestCocktailItems: filterLowestItems(defArr(productMix?.lowestCocktailItems)),
+    lowestWineItems: filterLowestItems(defArr(productMix?.lowestWineItems)),
+    lowestBeerItems: filterLowestItems(defArr(productMix?.lowestBeerItems)),
   };
 }

@@ -7,7 +7,8 @@ import { getWeekRangeLabel } from "@/lib/sophia-weekly/weekUtils";
 
 /**
  * POST /api/sophia-weekly/send?weekKey=2026-03-08&restaurantId=goldies
- * Sends the generated weekly recap email for that week to configured recipients.
+ * Sends the weekly recap email. If the request body contains emailBody, that exact text is sent
+ * (so the email never differs from what the user sees in the preview). Otherwise uses stored generatedEmailText.
  */
 export async function POST(request: NextRequest) {
   const weekKey = request.nextUrl.searchParams.get("weekKey");
@@ -20,6 +21,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    let bodyText: string | null = null;
+    try {
+      const body = await request.json();
+      if (body && typeof body.emailBody === "string" && body.emailBody.trim()) {
+        bodyText = body.emailBody.trim();
+      }
+    } catch {
+      // no body or invalid JSON
+    }
+
     const db = getAdminDb();
     const ref = db.collection("goldiesWeeklyImports").doc(weekDocId(restaurantId, weekKey));
     const snap = await ref.get();
@@ -28,14 +39,13 @@ export async function POST(request: NextRequest) {
     }
 
     const doc = snap.data();
-    const text = doc?.generatedEmailText;
+    const text = bodyText ?? doc?.generatedEmailText ?? null;
     if (!text) {
       return NextResponse.json({ error: "No generated email for this week" }, { status: 400 });
     }
 
-    let recipients: string[] = (doc?.recipients as string[])?.length
-      ? (doc.recipients as string[])
-      : [];
+    const docRecipients = doc?.recipients;
+    let recipients: string[] = Array.isArray(docRecipients) ? (docRecipients as string[]) : [];
     if (!recipients.length) {
       const configSnap = await db.collection("goldiesWeeklyConfig").doc("recipients").get();
       recipients = Array.isArray(configSnap.data()?.recipients) ? (configSnap.data()!.recipients as string[]) : [];

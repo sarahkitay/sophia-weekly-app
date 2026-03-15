@@ -123,9 +123,14 @@ export function topThree(items: AggregatedItem[]): string[] {
     .map((x) => x.item);
 }
 
+/** Lowest-selling items must not include "side"; skip those and take the next. */
+function isSideItem(name: string): boolean {
+  return name.toLowerCase().includes("side");
+}
+
 export function lowestThree(items: AggregatedItem[]): string[] {
   return [...items]
-    .filter((x) => x.qty > 0)
+    .filter((x) => x.qty > 0 && !isSideItem(x.item))
     .sort((a, b) => {
       if (a.qty !== b.qty) return a.qty - b.qty;
       if (a.sales !== b.sales) return a.sales - b.sales;
